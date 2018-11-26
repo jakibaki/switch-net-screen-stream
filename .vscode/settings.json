@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "jpeglib.h": "c",
+        "turbojpeg.h": "c",
+        "testjpeg.h": "c"
+    }
+}

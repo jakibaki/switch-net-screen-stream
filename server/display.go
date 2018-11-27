@@ -85,7 +85,7 @@ func handleRequest(conn net.Conn) {
 
 	j := 0
 	for {
-		framelimiter := time.NewTimer(time.Second / 60)
+		framelimiter := time.NewTimer(time.Second / 50)
 
 		//outimg := resize.Resize(resx, resy, img, resize.Lanczos2)
 		img, err := CaptureScreen(c)

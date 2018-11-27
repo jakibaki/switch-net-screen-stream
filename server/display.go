@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
@@ -84,6 +85,8 @@ func handleRequest(conn net.Conn) {
 
 	j := 0
 	for {
+		framelimiter := time.NewTimer(time.Second / 60)
+
 		//outimg := resize.Resize(resx, resy, img, resize.Lanczos2)
 		img, err := CaptureScreen(c)
 		if err != nil {
@@ -98,12 +101,13 @@ func handleRequest(conn net.Conn) {
 		//converter.Convert(dstFrame, img)
 
 		buf := new(bytes.Buffer)
-		jpeg.Encode(buf, img, &jpeg.EncoderOptions{Quality: 30})
+		jpeg.Encode(buf, img, &jpeg.EncoderOptions{Quality: 20})
 
 		bs := make([]byte, 4)
 		binary.LittleEndian.PutUint32(bs, uint32(buf.Len()))
 		conn.Write(bs)
-		go conn.Write(buf.Bytes())
+		conn.Write(buf.Bytes())
+		<-framelimiter.C
 	}
 
 	conn.Close()

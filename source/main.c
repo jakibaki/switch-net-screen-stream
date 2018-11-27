@@ -88,6 +88,7 @@ void decompLoop() {
     connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 
     while(1) {
+
         recv(sockfd, &input_size, sizeof(u32), 0);
         int s = recv(sockfd, input_buf, input_size, MSG_WAITALL);
 
@@ -104,8 +105,24 @@ int main(int argc, char* argv[])
     fakebuf = malloc(1280*720*4);
     input_buf = memalign(0x1000, 1280*720*4); // The jpeg can hardly get any bigger then that :D
 
-    socketInitializeDefault();
-    nxlinkStdio();
+
+    static const SocketInitConfig socketInitConfig = {
+        .bsdsockets_version = 1,
+
+        .tcp_tx_buf_size        = 200000,
+        .tcp_rx_buf_size        = 200000,
+        .tcp_tx_buf_max_size    = 400000,
+        .tcp_rx_buf_max_size    = 400000,
+
+        .udp_tx_buf_size = 0x2400,
+        .udp_rx_buf_size = 0xA500,
+
+        .sb_efficiency = 8,
+    };
+
+    socketInitialize(&socketInitConfig);
+    //socketInitializeDefault();
+
 
     mutexInit(&fakeBufMut);
 
@@ -114,7 +131,7 @@ int main(int argc, char* argv[])
     gfxInitDefault();
 
     Thread fakebufLoopThread;
-    threadCreate(&fakebufLoopThread, decompLoop, NULL, 0x1000, 0x3B, 1);
+    threadCreate(&fakebufLoopThread, decompLoop, NULL, 0x1000, 0x3B, 2);
     threadStart(&fakebufLoopThread);
 
     // Main loop

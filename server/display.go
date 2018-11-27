@@ -12,6 +12,7 @@ import (
 
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/bamiaux/rez"
 	"github.com/pixiv/go-libjpeg/jpeg"
 )
 
@@ -43,19 +44,10 @@ const (
 )
 
 func handleRequest(conn net.Conn) {
-	// Make a buffer to hold incoming data.
-	//buf := make([]byte, 1024)
-	// Read the incoming connection into the buffer.
-	/*	reqLen, err := conn.Read(buf)
-		if err != nil {
-		  fmt.Println("Error reading:", err.Error())
-		}
-		// Send a response back to person contacting us.
-		conn.Write([]byte("Message received."))
-		// Close the connection when you're done with it.*/
+	defer conn.Close()
 
-	//resx := 1280
-	//resy := 720
+	resx := 1280
+	resy := 720
 
 	c, err := xgb.NewConn()
 	if err != nil {
@@ -63,11 +55,16 @@ func handleRequest(conn net.Conn) {
 	}
 	defer c.Close()
 
-	/*dstFrame := image.NewRGBA(image.Rect(0, 0, resx, resy))
+	screen := xproto.Setup(c).DefaultScreen(c)
+	x := int(screen.WidthInPixels)
+	y := int(screen.HeightInPixels)
+
+	// TODO: We need to update the image-resolution if it changes
+	dstFrame := image.NewRGBA(image.Rect(0, 0, resx, resy))
 	converter, _ := rez.NewConverter(&rez.ConverterConfig{
 		Input: rez.Descriptor{
-			Width:      1920,
-			Height:     1080,
+			Width:      x,
+			Height:     y,
 			Interlaced: false,
 			Ratio:      rez.Ratio444,
 			Pack:       4,
@@ -81,11 +78,11 @@ func handleRequest(conn net.Conn) {
 			Pack:       4,
 			Planes:     1,
 		},
-	}, rez.NewBilinearFilter())*/
+	}, rez.NewBilinearFilter())
 
 	j := 0
 	for {
-		framelimiter := time.NewTimer(time.Second / 50)
+		framelimiter := time.NewTimer(time.Second / 60)
 
 		//outimg := resize.Resize(resx, resy, img, resize.Lanczos2)
 		img, err := CaptureScreen(c)
@@ -98,19 +95,30 @@ func handleRequest(conn net.Conn) {
 			fmt.Println(j)
 		}
 
-		//converter.Convert(dstFrame, img)
-
 		buf := new(bytes.Buffer)
-		jpeg.Encode(buf, img, &jpeg.EncoderOptions{Quality: 20})
+
+		if x != resx || y != resy {
+			// Downscale if necessary
+			converter.Convert(dstFrame, img)
+			jpeg.Encode(buf, dstFrame, &jpeg.EncoderOptions{Quality: 15})
+		} else {
+			jpeg.Encode(buf, img, &jpeg.EncoderOptions{Quality: 15})
+		}
 
 		bs := make([]byte, 4)
 		binary.LittleEndian.PutUint32(bs, uint32(buf.Len()))
-		conn.Write(bs)
-		conn.Write(buf.Bytes())
+		_, err = conn.Write(bs)
+		if err != nil {
+			break
+		}
+		_, err = conn.Write(buf.Bytes())
+		if err != nil {
+			break
+		}
+
 		<-framelimiter.C
 	}
 
-	conn.Close()
 }
 
 func main() {
